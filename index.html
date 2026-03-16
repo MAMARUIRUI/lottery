@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>述职大会 · 抽签系统</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --gold:   #f5c518;
+  --gold2:  #e8a900;
+  --deep:   #07071a;
+  --panel:  rgba(255,255,255,0.05);
+  --border: rgba(245,197,24,0.3);
+  --text:   #f0e6c8;
+  --blue:   #4a9eff;
+  --green:  #2ecc71;
+  --red:    #e74c3c;
+}
+body {
+  background: var(--deep);
+  color: var(--text);
+  font-family: 'Microsoft YaHei','PingFang SC',sans-serif;
+  min-height: 100vh; overflow-x: hidden;
+}
+
+/* ── 星空 ── */
+#starfield { position:fixed; inset:0; z-index:0; pointer-events:none;
+  background: radial-gradient(ellipse at 20% 50%, rgba(74,158,255,.07) 0%, transparent 60%),
+              radial-gradient(ellipse at 80% 20%, rgba(155,89,182,.07) 0%, transparent 50%),
+              linear-gradient(180deg,#050510 0%,#07071a 100%); }
+.star { position:absolute; border-radius:50%; background:#fff;
+  animation:twinkle var(--d,3s) ease-in-out infinite var(--delay,0s); }
+@keyframes twinkle { 0%,100%{opacity:.15;transform:scale(1)} 50%{opacity:1;transform:scale(1.5)} }
+
+/* ── 标题 ── */
+.hd { position:relative; z-index:10; text-align:center; padding:24px 20px 0; }
+.hd-sub  { font-size:12px; letter-spacing:6px; color:var(--gold); opacity:.8; margin-bottom:6px; }
+.hd-main {
+  font-size: clamp(26px,4.5vw,50px); font-weight:900; letter-spacing:4px;
+  background:linear-gradient(135deg,#f5c518 0%,#fffde0 50%,#f5c518 100%);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+  filter:drop-shadow(0 0 18px rgba(245,197,24,.5));
+}
+.hd-line { width:180px; height:2px; margin:10px auto 0;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent); }
+
+/* ── 布局 ── */
+.main {
+  position:relative; z-index:10;
+  max-width:1200px; margin:0 auto; padding:16px 16px 40px;
+  display:grid;
+  grid-template-columns: 1fr 300px;
+  grid-template-rows: auto 1fr;
+  gap:16px;
+}
+@media(max-width:900px){ .main{grid-template-columns:1fr;} .right-col{grid-row:auto;} }
+
+/* ── 步骤条 ── */
+.steps { grid-column:1/-1; display:flex; align-items:center; justify-content:center; gap:0; }
+.step {
+  display:flex; flex-direction:column; align-items:center; gap:5px;
+  padding:10px 20px; border:1px solid var(--border); border-radius:8px;
+  background:var(--panel); backdrop-filter:blur(8px);
+  min-width:110px; transition:all .4s;
+}
+.step.active { border-color:var(--gold); background:rgba(245,197,24,.12); box-shadow:0 0 18px rgba(245,197,24,.2); }
+.step.done   { border-color:var(--green); background:rgba(46,204,113,.08); }
+.step-num {
+  width:28px; height:28px; border-radius:50%; border:2px solid currentColor;
+  display:flex; align-items:center; justify-content:center;
+  font-weight:bold; font-size:13px; color:rgba(255,255,255,.3); transition:all .4s;
+}
+.step.active .step-num { color:var(--gold); border-color:var(--gold); }
+.step.done   .step-num { color:var(--green); border-color:var(--green); background:rgba(46,204,113,.2); }
+.step-lbl { font-size:12px; color:rgba(255,255,255,.45); transition:all .4s; }
+.step.active .step-lbl { color:var(--gold); }
+.step.done   .step-lbl { color:var(--green); }
+.sarrow { width:40px; height:2px; background:var(--border); position:relative; }
+.sarrow::after { content:''; position:absolute; right:-1px; top:-4px;
+  border:5px solid transparent; border-left-color:var(--border); }
+
+/* ── 主舞台 ── */
+.stage {
+  background:var(--panel); backdrop-filter:blur(12px);
+  border:1px solid var(--border); border-radius:16px;
+  padding:28px; display:flex; flex-direction:column;
+  align-items:center; gap:22px; min-height:440px;
+}
+.phase { display:none; flex-direction:column; align-items:center; gap:20px; width:100%; }
+.phase.show { display:flex; }
+.phase-label {
+  font-size:12px; color:rgba(255,255,255,.45); letter-spacing:3px;
+  border-bottom:1px solid var(--border); width:100%; text-align:center; padding-bottom:12px;
+}
+
+/* ── 老虎机槽 ── */
+.slot-box {
+  border-radius:14px; overflow:hidden; position:relative;
+  box-shadow:inset 0 0 24px rgba(0,0,0,.6);
+  background:rgba(0,0,0,.55);
+}
+.slot-box::before,.slot-box::after {
+  content:''; position:absolute; left:0; right:0; z-index:2; pointer-events:none;
+}
+.slot-box.dept-slot {
+  width:340px; height:110px;
+  border:2px solid var(--gold);
+  box-shadow:0 0 28px rgba(245,197,24,.25), inset 0 0 24px rgba(0,0,0,.6);
+}
+.slot-box.dept-slot::before { top:0;    height:32px; background:linear-gradient(to bottom,rgba(7,7,26,.95),transparent); }
+.slot-box.dept-slot::after  { bottom:0; height:32px; background:linear-gradient(to top,rgba(7,7,26,.95),transparent); }
+.slot-box.person-slot {
+  width:300px; height:96px;
+  border:2px solid var(--blue);
+  box-shadow:0 0 28px rgba(74,158,255,.25), inset 0 0 24px rgba(0,0,0,.6);
+}
+.slot-box.person-slot::before { top:0;    height:28px; background:linear-gradient(to bottom,rgba(7,7,26,.95),transparent); }
+.slot-box.person-slot::after  { bottom:0; height:28px; background:linear-gradient(to top,rgba(7,7,26,.95),transparent); }
+
+.reel { display:flex; flex-direction:column; will-change:transform; }
+.reel-item { display:flex; align-items:center; justify-content:center;
+  font-weight:800; text-align:center; padding:0 14px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.dept-slot .reel-item   { height:110px; font-size:26px; color:var(--gold); }
+.person-slot .reel-item { height:96px;  font-size:26px; color:var(--blue); }
+
+/* ── 结果卡 ── */
+.result-card {
+  padding:26px 44px; border-radius:16px;
+  border:2px solid var(--gold);
+  background:linear-gradient(135deg,rgba(245,197,24,.09),rgba(245,197,24,.03));
+  box-shadow:0 0 50px rgba(245,197,24,.18);
+  text-align:center;
+  animation:popIn .5s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes popIn { from{transform:scale(.6);opacity:0} to{transform:scale(1);opacity:1} }
+.rc-dept-lbl  { font-size:12px; color:var(--gold); letter-spacing:3px; opacity:.7; }
+.rc-dept-name { font-size:28px; font-weight:900; color:var(--gold);
+  text-shadow:0 0 18px rgba(245,197,24,.6); margin:4px 0; }
+.rc-divider   { width:70px; height:1px; background:var(--border); margin:10px auto; }
+.rc-person-lbl  { font-size:12px; color:var(--blue); letter-spacing:3px; opacity:.7; }
+.rc-person-name {
+  font-size:56px; font-weight:900; color:#fff;
+  text-shadow:0 0 30px rgba(74,158,255,.8);
+  animation:namePulse 1.6s ease-in-out infinite;
+  margin:6px 0;
+}
+@keyframes namePulse {
+  0%,100%{ text-shadow:0 0 30px rgba(74,158,255,.7); }
+  50%    { text-shadow:0 0 70px rgba(74,158,255,1), 0 0 90px rgba(74,158,255,.4); }
+}
+
+/* ── 按钮 ── */
+.btn-row { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+.btn {
+  padding:13px 32px; border:none; border-radius:50px;
+  font-size:15px; font-weight:700; letter-spacing:2px;
+  cursor:pointer; transition:all .22s; position:relative; overflow:hidden;
+  font-family:'Microsoft YaHei','PingFang SC',sans-serif;
+}
+.btn::before { content:''; position:absolute; inset:0;
+  background:rgba(255,255,255,.15); opacity:0; transition:opacity .18s; }
+.btn:hover::before { opacity:1; }
+.btn:active { transform:scale(.96); }
+.btn:disabled { opacity:.35; pointer-events:none; }
+.btn-gold   { background:linear-gradient(135deg,#f5c518,#e8a900); color:#1a0a00;
+  box-shadow:0 4px 18px rgba(245,197,24,.4); }
+.btn-gold:hover   { box-shadow:0 6px 28px rgba(245,197,24,.6); transform:translateY(-2px); }
+.btn-blue   { background:linear-gradient(135deg,#4a9eff,#2265cc); color:#fff;
+  box-shadow:0 4px 18px rgba(74,158,255,.3); }
+.btn-blue:hover   { box-shadow:0 6px 28px rgba(74,158,255,.5); transform:translateY(-2px); }
+.btn-green  { background:linear-gradient(135deg,#2ecc71,#1a9e53); color:#fff;
+  box-shadow:0 4px 18px rgba(46,204,113,.3); }
+.btn-green:hover  { box-shadow:0 6px 28px rgba(46,204,113,.5); transform:translateY(-2px); }
+.btn-ghost  { background:transparent; color:rgba(255,255,255,.5);
+  border:1px solid rgba(255,255,255,.2); }
+.btn-ghost:hover  { color:#fff; border-color:rgba(255,255,255,.5); }
+
+.status-bar { font-size:13px; color:rgba(255,255,255,.55); letter-spacing:1px;
+  text-align:center; min-height:20px; }
+.status-bar.hi { color:var(--gold); font-weight:bold; }
+
+/* ── 右侧面板 ── */
+.right-col { grid-row:2/-1; display:flex; flex-direction:column; gap:14px; }
+.rpanel {
+  background:var(--panel); backdrop-filter:blur(10px);
+  border:1px solid var(--border); border-radius:14px; padding:18px;
+  display:flex; flex-direction:column;
+}
+.rpanel-title {
+  font-size:12px; letter-spacing:3px; color:var(--gold); opacity:.9;
+  margin-bottom:12px; display:flex; align-items:center; gap:7px;
+}
+.rpanel-title::before { content:''; display:block; width:3px; height:13px;
+  background:var(--gold); border-radius:2px; }
+
+/* 部门卡片列表（仅显示名称，无数字） */
+.dept-grid { display:flex; flex-direction:column; gap:5px; overflow-y:auto; max-height:340px;
+  scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+.dept-card {
+  display:flex; align-items:center;
+  padding:7px 12px; border-radius:8px;
+  border:1px solid rgba(255,255,255,.07);
+  background:rgba(255,255,255,.03);
+  transition:all .3s; cursor:default;
+}
+.dept-card.cur  { border-color:var(--gold); background:rgba(245,197,24,.12); }
+.dept-card-dot {
+  width:7px; height:7px; border-radius:50%;
+  background:rgba(255,255,255,.2); margin-right:8px; flex-shrink:0;
+  transition:all .3s;
+}
+.dept-card.cur  .dept-card-dot { background:var(--gold); box-shadow:0 0 8px var(--gold); }
+.dept-card-name { flex:1; font-size:13px; color:rgba(255,255,255,.7); }
+.dept-card.cur  .dept-card-name { color:var(--gold); font-weight:bold; }
+
+/* 历史记录 */
+.history-scroll { overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:6px;
+  max-height:240px; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+.hist-item {
+  display:flex; align-items:center; gap:8px; padding:7px 10px;
+  border-radius:7px; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.05);
+  animation:slideIn .3s ease;
+}
+@keyframes slideIn { from{transform:translateX(16px);opacity:0} to{transform:translateX(0);opacity:1} }
+.hist-no   { font-size:10px; color:var(--gold); font-weight:bold;
+  border:1px solid rgba(245,197,24,.35); border-radius:4px; padding:1px 5px; min-width:22px; text-align:center; }
+.hist-dept { font-size:11px; color:rgba(255,255,255,.4); max-width:80px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex-shrink:0; }
+.hist-arr  { font-size:10px; color:rgba(255,255,255,.25); }
+.hist-name { font-size:13px; color:#fff; font-weight:bold; flex:1; }
+.hist-empty{ font-size:12px; color:rgba(255,255,255,.25); text-align:center; padding:18px 0; }
+
+/* ── 烟花 ── */
+#fw { position:fixed; inset:0; pointer-events:none; z-index:50; }
+.ptc { position:absolute; border-radius:50%;
+  animation:burst var(--dur,1s) ease-out forwards; }
+@keyframes burst {
+  0%  { transform:translate(0,0) scale(1); opacity:1; }
+  100%{ transform:translate(var(--tx),var(--ty)) scale(0); opacity:0; }
+}
+
+/* ── 模态框 ── */
+.modal-ov { display:none; position:fixed; inset:0; z-index:100;
+  background:rgba(0,0,0,.8); backdrop-filter:blur(4px);
+  justify-content:center; align-items:center; }
+.modal-ov.open { display:flex; }
+.modal {
+  background:#0d0d22; border:1px solid var(--border); border-radius:18px;
+  padding:28px; width:90%; max-width:660px; max-height:82vh; overflow-y:auto;
+  box-shadow:0 20px 60px rgba(0,0,0,.8);
+  animation:popIn .3s cubic-bezier(.34,1.56,.64,1);
+}
+.modal-title { font-size:18px; font-weight:bold; color:var(--gold); margin-bottom:14px; }
+.modal-hint  { font-size:11px; color:rgba(255,255,255,.38); margin-bottom:12px;
+  background:rgba(255,255,255,.03); padding:10px; border-radius:7px;
+  border-left:3px solid var(--border); line-height:1.8; }
+.modal-ta {
+  width:100%; height:300px; background:rgba(0,0,0,.4); color:var(--text);
+  border:1px solid var(--border); border-radius:8px; padding:12px;
+  font-size:12px; font-family:'Courier New',monospace; resize:vertical; outline:none; line-height:1.6;
+}
+.modal-ta:focus { border-color:var(--gold); }
+.modal-ft { margin-top:14px; display:flex; justify-content:flex-end; gap:10px; }
+
+/* ── 部门抽签中醒目展示 ── */
+.big-dept-name {
+  font-size:clamp(28px,4vw,42px); font-weight:900; color:var(--gold);
+  text-shadow:0 0 20px rgba(245,197,24,.6); text-align:center;
+}
+</style>
+</head>
+<body>
+<div id="starfield"></div>
+<div id="fw"></div>
+
+<div class="hd">
+  <div class="hd-sub">Annual Review Conference · 述职大会</div>
+  <div class="hd-main">述职大会抽签系统</div>
+  <div class="hd-line"></div>
+</div>
+
+<div class="main">
+
+  <!-- 步骤条 -->
+  <div class="steps">
+    <div class="step active" id="s1"><div class="step-num">1</div><div class="step-lbl">抽取中心</div></div>
+    <div class="sarrow"></div>
+    <div class="step" id="s2"><div class="step-num">2</div><div class="step-lbl">抽取人员</div></div>
+    <div class="sarrow"></div>
+    <div class="step" id="s3"><div class="step-num">3</div><div class="step-lbl">公布结果</div></div>
+  </div>
+
+  <!-- 主舞台 -->
+  <div class="stage">
+
+    <!-- Phase A: 抽中心 -->
+    <div class="phase show" id="phA">
+      <div class="phase-label">第一阶段 — 随机抽取述职中心</div>
+      <div class="slot-box dept-slot" id="slotDept">
+        <div class="reel" id="reelDept"></div>
+      </div>
+      <div class="status-bar" id="stA">点击按钮开始抽取述职中心</div>
+      <div class="btn-row">
+        <button class="btn btn-gold" id="btnA" onclick="drawDept()">🎲 开始抽取中心</button>
+        <button class="btn btn-ghost" onclick="openCfg()">⚙ 配置名单</button>
+        <button class="btn btn-ghost" onclick="resetAll()">↺ 重置</button>
+      </div>
+    </div>
+
+    <!-- Phase B: 抽人员 -->
+    <div class="phase" id="phB">
+      <div class="phase-label">第二阶段 — 从中心内抽取述职人员</div>
+      <div style="text-align:center;">
+        <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:5px;">已抽中中心</div>
+        <div class="big-dept-name" id="curDeptLabel"></div>
+      </div>
+      <div class="slot-box person-slot" id="slotPerson">
+        <div class="reel" id="reelPerson"></div>
+      </div>
+      <div class="status-bar" id="stB">正在准备...</div>
+      <div class="btn-row">
+        <button class="btn btn-blue" id="btnB" onclick="drawPerson()">👤 抽取人员</button>
+      </div>
+    </div>
+
+    <!-- Phase C: 单人结果展示 -->
+    <div class="phase" id="phC">
+      <div class="phase-label">第三阶段 — 公布结果</div>
+      <div class="result-card" id="rcCard">
+        <div class="rc-dept-lbl">述职中心</div>
+        <div class="rc-dept-name" id="rcDept"></div>
+        <div class="rc-divider"></div>
+        <div class="rc-person-lbl">述职人员</div>
+        <div class="rc-person-name" id="rcPerson"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-gold" onclick="startNextDept()">🎲 继续抽取中心</button>
+        <button class="btn btn-ghost" onclick="resetAll()">↺ 重置全部</button>
+      </div>
+    </div>
+
+  </div><!-- /stage -->
+
+  <!-- 右侧 -->
+  <div class="right-col">
+
+    <div class="rpanel" style="flex:1">
+      <div class="rpanel-title">参与中心</div>
+      <div class="dept-grid" id="deptGrid"></div>
+    </div>
+
+    <div class="rpanel">
+      <div class="rpanel-title">抽签记录</div>
+      <div class="history-scroll" id="histScroll">
+        <div class="hist-empty" id="histEmpty">暂无记录</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 配置模态框（仅管理员使用，不对外展示） -->
+<div class="modal-ov" id="cfgModal">
+  <div class="modal">
+    <div class="modal-title">⚙ 配置名单（管理员）</div>
+    <div class="modal-hint">
+      格式：以 【中心名称:抽签配额】 开头（如 【技术中心:2】），下方每行一个姓名。<br>
+      配额表示该中心最多可抽取几人（达到后该中心成员将不再参与抽签）。
+    </div>
+    <textarea class="modal-ta" id="cfgTA"></textarea>
+    <div class="modal-ft">
+      <button class="btn btn-ghost" onclick="closeCfg()">取消</button>
+      <button class="btn btn-gold"  onclick="saveCfg()">✓ 保存并应用</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  真实数据（来自 述职大会名单20260228.xlsx）
+//  quota = 该中心最多抽几人（内部控制，不对外显示）
+// ══════════════════════════════════════════════════════
+const RAW = {
+  order: [
+    "安全环保中心","安全环保中心管理","包装中心","包装管理",
+    "酒库管理","品控管理","财务中心","供应链管理",
+    "技术中心管理","技术中心","酒库中心","酿造管理",
+    "酿造中心","品控中心","人力行政中心管理","人力行政中心",
+    "生产计划中心管理","生产计划中心"
+  ],
+  data: {
+    "安全环保中心":     { quota:1, members:["李武","苏昌丽","陈兴龙","廖贵生","刘欢","陈红锦","李二妹"] },
+    "安全环保中心管理": { quota:1, members:["佘兴海","汪运河","冯文锐"] },
+    "包装中心":         { quota:1, members:["佘雁铬","许祥玲"] },
+    "包装管理":         { quota:1, members:["佘兴未","蔡龙丽"] },
+    "酒库管理":         { quota:1, members:["冯文刚","毛永伟"] },
+    "品控管理":         { quota:1, members:["张仕进","周俊候"] },
+    "财务中心":         { quota:1, members:["佘荣丽","邹海波","余浪","徐杨","余妮妮","赵茂艳","李兵兵","成佳豪"] },
+    "供应链管理":       { quota:1, members:["张映林","许亚洲","刘莉","李万聪","佘兴洋","付双飞","祝波","吴静静"] },
+    "技术中心管理":     { quota:1, members:["邓昌伟","吴昭庆","左乾程","张昆叶","冯丽"] },
+    "技术中心":         { quota:2, members:["李正勇","冯玮玲","蔡艳丽","宋永玲","李雪珂","莫前伟","陈芹","吴豪","刘梦","卢友红","秦川","刘福妮","梁彬","曾维维"] },
+    "酒库中心":         { quota:2, members:["陈钊","顾玉梅","佘兴礼","谢红","邓昌明","陈在扬","陈横","佘吉华","刘显堃","张映利","黄华进","罗加飞","张本崙","陈在洪","王璇","侯秋霞","赵小燕","吴伟","马董涛"] },
+    "酿造管理":         { quota:1, members:["赵聪","徐凯","田素"] },
+    "酿造中心":         { quota:3, members:["张小彬","陈小利","罗鹏","佘佳明","王小跳","李洪","梁显强","赵岭","周文林","唐军华","冯文忠","佘兴勇","李正才","陈敬梅","马晓波","王程程","赵本文","张莉","张雷渊","袁雪江","冯辽"] },
+    "品控中心":         { quota:1, members:["许婷婷","陈蓉","文建聪","陈华利","冯译黎"] },
+    "人力行政中心管理": { quota:1, members:["马锐","蔡嘉欣","佘云飞","张娜"] },
+    "人力行政中心":     { quota:2, members:["刘城","许帅","陈开祥","佘兴凯","程婉","佘兴利","佘兴敏","王惠文","郭耀","陈建林","朱顺叶","王尘怀","杨茜","胡玉慧","卢晓艳","蔡在芳","杨亚云","许兰兰","秦涛","周文烽","徐亚军","卢晓艋","刘鑫","彭文叶","张正湧","杨万霞"] },
+    "生产计划中心管理": { quota:1, members:["刘相灼","张瑜"] },
+    "生产计划中心":     { quota:1, members:["冯建群","周文静","杨镇波","王艺","杨丽","陈碧红","王聪","张璐","杨莎莎","周万露"] }
+  }
+};
+
+// ══════════════════════════════════════════════════════
+//  运行时状态
+// ══════════════════════════════════════════════════════
+let deptOrder = [];
+let deptData  = {};
+let drawn     = {};   // { deptName: Set<person> }  已抽过的人（跨轮次保持）
+let histList  = [];
+let totalNo   = 0;
+
+let curDept   = null;
+let drawing   = false;
+
+// ══════════════════════════════════════════════════════
+//  初始化
+// ══════════════════════════════════════════════════════
+function init() {
+  stars();
+  loadRaw(RAW);
+  renderDeptGrid();
+  buildDeptReel();
+  setPhase('A');
+}
+
+function loadRaw(raw) {
+  deptOrder = [...raw.order];
+  deptData  = JSON.parse(JSON.stringify(raw.data));
+  drawn     = {};
+  deptOrder.forEach(d => { drawn[d] = new Set(); });
+}
+
+// ══════════════════════════════════════════════════════
+//  可用判断：中心还有没有可抽的人（没超配额且有剩余成员）
+// ══════════════════════════════════════════════════════
+function deptHasRemain(d) {
+  const drawnCount = drawn[d].size;
+  const quota      = deptData[d].quota;
+  const membersLeft = deptData[d].members.filter(p => !drawn[d].has(p)).length;
+  return drawnCount < quota && membersLeft > 0;
+}
+
+// 参与抽签的中心（有剩余名额且有剩余人员的）
+function availableDepts() {
+  return deptOrder.filter(d => deptHasRemain(d));
+}
+
+// ══════════════════════════════════════════════════════
+//  滚轮构建
+// ══════════════════════════════════════════════════════
+function buildDeptReel() {
+  // 只放有剩余名额的中心（配额用完的自动退出）
+  const avail = availableDepts();
+  const reel  = document.getElementById('reelDept');
+  reel.innerHTML = '';
+  if (!avail.length) { reel.style.transform = 'translateY(0)'; return; }
+  const loop = [...avail, ...avail, ...avail];
+  loop.forEach(name => {
+    const div = document.createElement('div');
+    div.className = 'reel-item';
+    div.textContent = name;
+    reel.appendChild(div);
+  });
+  reel.style.transform = 'translateY(0)';
+}
+
+function buildPersonReel(dept) {
+  // 只放剩余未抽人员
+  const remain = deptData[dept].members.filter(p => !drawn[dept].has(p));
+  const reel   = document.getElementById('reelPerson');
+  reel.innerHTML = '';
+  const loop   = [...remain, ...remain, ...remain];
+  loop.forEach(name => {
+    const div = document.createElement('div');
+    div.className = 'reel-item';
+    div.textContent = name;
+    reel.appendChild(div);
+  });
+  reel.style.transform = 'translateY(0)';
+}
+
+// ══════════════════════════════════════════════════════
+//  阶段控制
+// ══════════════════════════════════════════════════════
+function setPhase(p) {
+  ['A','B','C'].forEach(x => {
+    document.getElementById('ph'+x).classList.toggle('show', x===p);
+  });
+}
+function setStep(n, state) {
+  const el = document.getElementById('s'+n);
+  el.classList.remove('active','done');
+  if (state) el.classList.add(state);
+}
+function setSt(id, msg, hi=false) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.classList.toggle('hi', hi);
+}
+
+// ══════════════════════════════════════════════════════
+//  抽中心
+// ══════════════════════════════════════════════════════
+function drawDept() {
+  if (drawing) return;
+
+  const avail = availableDepts();
+  if (!avail.length) {
+    setSt('stA','🎉 所有中心述职名额已抽完！',true);
+    document.getElementById('btnA').disabled = true;
+    return;
+  }
+
+  drawing = true;
+  document.getElementById('btnA').disabled = true;
+  setSt('stA','正在抽取中心...');
+  setStep(1,'active');
+
+  buildDeptReel();
+
+  // 从有剩余名额的中心里随机选一个
+  const target = avail[Math.floor(Math.random() * avail.length)];
+  curDept = target;
+
+  const reel  = document.getElementById('reelDept');
+  const IH    = 110;
+  const idx   = avail.indexOf(target) + avail.length; // 第二段
+  const dist  = 4 * avail.length * IH + idx * IH;
+
+  animReel(reel, dist, 2800, IH, () => {
+    drawing = false;
+    highlightDept(target);
+    setSt('stA', `✅ 抽中：${target}`, true);
+    setStep(1,'done'); setStep(2,'active');
+    setTimeout(() => enterPersonPhase(), 1000);
+  });
+}
+
+// ══════════════════════════════════════════════════════
+//  进入人员阶段
+// ══════════════════════════════════════════════════════
+function enterPersonPhase() {
+  document.getElementById('curDeptLabel').textContent = curDept;
+  buildPersonReel(curDept);
+  setSt('stB', `正在从【${curDept}】中随机抽取人员...`);
+  document.getElementById('btnB').disabled = false;
+  setPhase('B');
+  // 自动触发抽人
+  setTimeout(() => drawPerson(), 500);
+}
+
+// ══════════════════════════════════════════════════════
+//  抽人员
+// ══════════════════════════════════════════════════════
+function drawPerson() {
+  if (drawing) return;
+  const remain = deptData[curDept].members.filter(p => !drawn[curDept].has(p));
+  if (!remain.length) {
+    // 理论上不该走到这里（drawDept已过滤），但做兜底
+    setSt('stB','该中心所有成员已完成述职',true);
+    setTimeout(() => startNextDept(), 1200);
+    return;
+  }
+
+  drawing = true;
+  document.getElementById('btnB').disabled = true;
+  setSt('stB','正在随机抽取...');
+
+  buildPersonReel(curDept);
+
+  const target = remain[Math.floor(Math.random() * remain.length)];
+  const reel   = document.getElementById('reelPerson');
+  const IH     = 96;
+  const idx    = remain.indexOf(target) + remain.length;
+  const dist   = 5 * remain.length * IH + idx * IH;
+
+  animReel(reel, dist, 2500, IH, () => {
+    drawing = false;
+
+    // 记录已抽
+    drawn[curDept].add(target);
+    totalNo++;
+    histList.unshift({ no:totalNo, dept:curDept, person:target });
+    addHistItem(totalNo, curDept, target);
+    updateDeptGrid();
+
+    // 展示结果（不含任何名额/比例信息）
+    document.getElementById('rcDept').textContent   = curDept;
+    document.getElementById('rcPerson').textContent = target;
+
+    setSt('stB', `✅ 抽签完成`, true);
+    setStep(2,'done'); setStep(3,'active');
+    fireworks();
+    setPhase('C');
+  });
+}
+
+// ══════════════════════════════════════════════════════
+//  继续下一轮（回到抽中心）
+// ══════════════════════════════════════════════════════
+function startNextDept() {
+  curDept = null;
+  setPhase('A');
+  buildDeptReel();
+  document.getElementById('btnA').disabled = false;
+  setStep(1,'active'); setStep(2,''); setStep(3,'');
+
+  const avail = availableDepts();
+  if (avail.length === 0) {
+    setSt('stA','🎉 所有中心述职名额已抽完！',true);
+    document.getElementById('btnA').disabled = true;
+  } else {
+    setSt('stA','点击按钮继续抽取述职中心');
+  }
+}
+
+function resetAll() {
+  if (!confirm('确定要重置所有抽签记录吗？')) return;
+  histList = []; totalNo = 0;
+  loadRaw(RAW);
+  renderDeptGrid();
+  buildDeptReel();
+  document.getElementById('histScroll').innerHTML = '<div class="hist-empty" id="histEmpty">暂无记录</div>';
+  setPhase('A');
+  document.getElementById('btnA').disabled = false;
+  setStep(1,'active'); setStep(2,''); setStep(3,'');
+  setSt('stA','点击按钮开始抽取述职中心');
+}
+
+// ══════════════════════════════════════════════════════
+//  Reel 缓动动画
+// ══════════════════════════════════════════════════════
+function animReel(reel, dist, dur, IH, done) {
+  const t0 = performance.now();
+  function ease(t){ return 1 - Math.pow(1-t,4); }
+  function tick(now){
+    const t = Math.min((now-t0)/dur, 1);
+    reel.style.transform = `translateY(${-ease(t)*dist}px)`;
+    if (t < 1) { requestAnimationFrame(tick); }
+    else {
+      reel.style.transform = `translateY(${-Math.round(dist/IH)*IH}px)`;
+      done();
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+// ══════════════════════════════════════════════════════
+//  右侧 UI（只显示中心名称，不显示名额数字）
+// ══════════════════════════════════════════════════════
+function renderDeptGrid() {
+  const g = document.getElementById('deptGrid');
+  g.innerHTML = '';
+  deptOrder.forEach(d => {
+    const card = document.createElement('div');
+    card.className = 'dept-card';
+    card.id = 'dc-' + d;
+    card.innerHTML = `<div class="dept-card-dot"></div><div class="dept-card-name">${d}</div>`;
+    g.appendChild(card);
+  });
+}
+
+function updateDeptGrid() {
+  deptOrder.forEach(d => {
+    const card = document.getElementById('dc-' + d);
+    if (!card) return;
+    card.classList.remove('cur');
+    if (d === curDept) card.classList.add('cur');
+  });
+}
+
+function highlightDept(name) {
+  document.querySelectorAll('.dept-card').forEach(c => c.classList.remove('cur'));
+  const card = document.getElementById('dc-' + name);
+  if (card) card.classList.add('cur');
+}
+
+function addHistItem(no, dept, person) {
+  const sc = document.getElementById('histScroll');
+  const em = document.getElementById('histEmpty');
+  if (em) em.remove();
+  const div = document.createElement('div');
+  div.className = 'hist-item';
+  div.innerHTML = `
+    <span class="hist-no">#${no}</span>
+    <span class="hist-dept" title="${dept}">${dept}</span>
+    <span class="hist-arr">→</span>
+    <span class="hist-name">${person}</span>`;
+  sc.insertBefore(div, sc.firstChild);
+}
+
+// ══════════════════════════════════════════════════════
+//  烟花
+// ══════════════════════════════════════════════════════
+function fireworks() {
+  const fw = document.getElementById('fw');
+  const colors = ['#f5c518','#ff6b6b','#4a9eff','#2ecc71','#9b59b6','#ff9f43','#fff','#fd79a8'];
+  const cx = innerWidth/2, cy = innerHeight/2;
+  for (let b=0; b<7; b++) {
+    setTimeout(() => {
+      const bx = cx + (Math.random()-.5)*500;
+      const by = cy + (Math.random()-.5)*250;
+      for (let i=0; i<22; i++) {
+        const p = document.createElement('div');
+        p.className = 'ptc';
+        const a = Math.PI*2*i/22 + Math.random()*.3;
+        const r = 70 + Math.random()*130;
+        const sz = 4 + Math.random()*7;
+        p.style.cssText = `left:${bx}px;top:${by}px;width:${sz}px;height:${sz}px;
+          background:${colors[Math.floor(Math.random()*colors.length)]};
+          --tx:${Math.cos(a)*r}px;--ty:${Math.sin(a)*r}px;
+          --dur:${.7+Math.random()*.7}s;
+          border-radius:${Math.random()>.5?'50%':'3px'};`;
+        fw.appendChild(p);
+        setTimeout(() => p.remove(), 1600);
+      }
+    }, b*220);
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  配置面板（管理员用，不对外展示）
+// ══════════════════════════════════════════════════════
+function getCfgText() {
+  return deptOrder.map(d => {
+    const q = deptData[d].quota;
+    return `【${d}:${q}】\n${deptData[d].members.join('\n')}`;
+  }).join('\n\n');
+}
+function parseCfg(text) {
+  const order=[], data={};
+  let cur=null;
+  for (const raw of text.split('\n')) {
+    const line = raw.trim(); if (!line) continue;
+    const m = line.match(/^[【\[](.*?)[：:]([\d]+)[】\]]/);
+    if (m) {
+      cur = m[1].trim();
+      order.push(cur);
+      data[cur] = { quota: parseInt(m[2])||1, members:[] };
+    } else if (cur) {
+      const n = line.replace(/^[\d\.\-\*\s]+/,'').trim();
+      if (n) data[cur].members.push(n);
+    }
+  }
+  return { order, data };
+}
+function openCfg() {
+  document.getElementById('cfgTA').value = getCfgText();
+  document.getElementById('cfgModal').classList.add('open');
+}
+function closeCfg() { document.getElementById('cfgModal').classList.remove('open'); }
+function saveCfg() {
+  const {order,data} = parseCfg(document.getElementById('cfgTA').value);
+  if (!order.length) { alert('格式有误，请检查后重试'); return; }
+  RAW.order = order; RAW.data = data;
+  loadRaw(RAW); renderDeptGrid(); buildDeptReel(); setPhase('A');
+  document.getElementById('btnA').disabled = false;
+  setSt('stA','名单已更新，点击按钮开始抽签');
+  closeCfg();
+}
+document.getElementById('cfgModal').addEventListener('click', e => { if(e.target===e.currentTarget) closeCfg(); });
+
+// ══════════════════════════════════════════════════════
+//  星空
+// ══════════════════════════════════════════════════════
+function stars() {
+  const sf = document.getElementById('starfield');
+  for (let i=0;i<130;i++){
+    const s=document.createElement('div'); s.className='star';
+    const sz=Math.random()*2.5+.5;
+    s.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;
+      --d:${(Math.random()*4+2).toFixed(1)}s;--delay:-${(Math.random()*6).toFixed(1)}s;`;
+    sf.appendChild(s);
+  }
+}
+
+init();
+</script>
+</body>
+</html>
